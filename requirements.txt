@@ -1,0 +1,27 @@
+# ============================================================
+# humanoid_rl — Python bagimliliklari
+# ------------------------------------------------------------
+# Bu makinede GPU surucusu BOZUK -> her sey CPU'da kosar.
+# torch'u CPU tekerleginden kurmak icin (onerilen):
+#
+#   .venv/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   .venv/bin/pip install -r requirements.txt
+#
+# Not: asagidaki surumler "en az" (>=) olarak verildi; bu projede
+# test edilen surumler yorumda parantez icinde yazili.
+# ============================================================
+
+# --- Fizik motoru + RL ortam arayuzu ---
+mujoco>=3.1            # (test: 3.10)  MJCF fizik simulasyonu + render
+gymnasium>=0.29        # (test: 1.3)   RL ortam standardi (Env: reset/step)
+
+# --- RL algoritmasi ---
+stable-baselines3>=2.3 # (test: 2.9)   PPO uygulamasi (MlpPolicy)
+torch>=2.2             # (test: 2.13+cpu)  sinir agi motoru -> MUTLAKA cpu tekerlegi
+
+# --- Video / goruntu cikti ---
+imageio>=2.31          # kareleri .mp4/.png olarak kaydet
+imageio-ffmpeg>=0.4    # imageio icin mp4 kodlayici (ffmpeg backend)
+
+# --- Egitim izleme ---
+tensorboard>=2.14      # egitim egrilerini (odul, kayip) canli izle

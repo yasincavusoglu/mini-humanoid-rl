@@ -1,0 +1,128 @@
+<!-- ============================================================
+     mini_humanoid.xml  —  Bizim 20-DOF robotumuzun BLUEPRINT'i (MJCF)
+     ~0.55 m, ~4.5 kg. Hobi-servo (pozisyon kontrollu) aktuatorler.
+     MJCF = MuJoCo'nun robot tarif dili (XML agaci):
+       body (parca) -> joint (eklem) -> geom (sekil/carpisma) -> actuator (motor)
+     ============================================================ -->
+<mujoco model="mini_humanoid">
+
+  <!-- Acilar DERECE cinsinden (okumasi kolay). autolimits: range varsa eklem sinirli. -->
+  <compiler angle="degree" autolimits="true"/>
+  <!-- timestep: fizigi 5 ms adimlarla coz. gravity: -z yonunde 9.81. -->
+  <option timestep="0.005" gravity="0 0 -9.81"/>
+
+  <!-- Render tuvali boyutu (goruntu almak icin) -->
+  <visual><global offwidth="1024" offheight="1024"/></visual>
+
+  <!-- VARSAYILANLAR: tekrar tekrar yazmamak icin ortak ayarlar -->
+  <default>
+    <!-- Her eklem: damping=surtunme, armature=motorun yansiyan atalati (Gun-1 dersi!) -->
+    <joint type="hinge" damping="0.3" armature="0.01"/>
+    <!-- Uzuvlar kapsul (capsule); yogunluktan kutle otomatik hesaplanir -->
+    <geom type="capsule" density="900" rgba="0.7 0.75 0.8 1" friction="1 0.1 0.1"/>
+
+    <!-- POZISYON aktuator = HOBI SERVO: hedef aci verirsin, ic-PD onu tork'a cevirir,
+         forcerange = servonun TORK TAVANI (asamaz). Bizim 'A' secimimizin kod hali. -->
+    <default class="bacak_motor"><position kp="40" forcerange="-8 8"/></default>  <!-- XM540 ~8 Nm -->
+    <default class="kol_motor"><position kp="20" forcerange="-3 3"/></default>    <!-- XM430/XL430 ~3 Nm -->
+  </default>
+
+  <worldbody>
+    <light pos="0 0 2" dir="0 0 -1" diffuse="1 1 1"/>
+    <geom name="zemin" type="plane" size="3 3 0.1" rgba="0.3 0.4 0.35 1"/>
+
+    <!-- KOK: torso. freejoint = havada yuzen taban (6 DOF, MOTORSUZ).
+         Bacaklar bunu ayakta tutmak zorunda. z=0.365'te basliyor (ayaklar zemine deger). -->
+    <body name="torso" pos="0 0 0.365">
+      <freejoint name="root"/>
+      <geom name="torso_g" type="box" size="0.06 0.05 0.09" density="600" rgba="0.2 0.5 0.7 1"/>
+
+      <!-- ============ SOL BACAK (6 DOF) ============ -->
+      <body name="l_thigh" pos="0 0.05 -0.09">
+        <joint name="l_hip_yaw"   axis="0 0 1" range="-40 40"/>   <!-- kalca: 3 eklem ayni noktada -->
+        <joint name="l_hip_roll"  axis="1 0 0" range="-30 30"/>
+        <joint name="l_hip_pitch" axis="0 1 0" range="-90 60"/>
+        <geom name="l_thigh_g" fromto="0 0 0  0 0 -0.12" size="0.025"/>
+        <body name="l_shank" pos="0 0 -0.12">
+          <joint name="l_knee" axis="0 1 0" range="0 120"/>       <!-- diz tek yone bukulur -->
+          <geom name="l_shank_g" fromto="0 0 0  0 0 -0.12" size="0.022"/>
+          <body name="l_foot" pos="0 0 -0.12">
+            <joint name="l_ankle_pitch" axis="0 1 0" range="-50 50"/>
+            <joint name="l_ankle_roll"  axis="1 0 0" range="-25 25"/>
+            <geom name="l_foot_g" type="box" pos="0.02 0 -0.02" size="0.06 0.03 0.015" density="700" rgba="0.15 0.15 0.15 1"/>
+          </body>
+        </body>
+      </body>
+
+      <!-- ============ SAG BACAK (ayna: y negatif) ============ -->
+      <body name="r_thigh" pos="0 -0.05 -0.09">
+        <joint name="r_hip_yaw"   axis="0 0 1" range="-40 40"/>
+        <joint name="r_hip_roll"  axis="1 0 0" range="-30 30"/>
+        <joint name="r_hip_pitch" axis="0 1 0" range="-90 60"/>
+        <geom name="r_thigh_g" fromto="0 0 0  0 0 -0.12" size="0.025"/>
+        <body name="r_shank" pos="0 0 -0.12">
+          <joint name="r_knee" axis="0 1 0" range="0 120"/>
+          <geom name="r_shank_g" fromto="0 0 0  0 0 -0.12" size="0.022"/>
+          <body name="r_foot" pos="0 0 -0.12">
+            <joint name="r_ankle_pitch" axis="0 1 0" range="-50 50"/>
+            <joint name="r_ankle_roll"  axis="1 0 0" range="-25 25"/>
+            <geom name="r_foot_g" type="box" pos="0.02 0 -0.02" size="0.06 0.03 0.015" density="700" rgba="0.15 0.15 0.15 1"/>
+          </body>
+        </body>
+      </body>
+
+      <!-- ============ SOL KOL (3 DOF) ============ -->
+      <body name="l_uarm" pos="0 0.07 0.06">
+        <joint name="l_shoulder_pitch" axis="0 1 0" range="-120 120"/>
+        <joint name="l_shoulder_roll"  axis="1 0 0" range="-20 90"/>
+        <geom name="l_uarm_g" fromto="0 0 0  0 0 -0.09" size="0.018"/>
+        <body name="l_farm" pos="0 0 -0.09">
+          <joint name="l_elbow" axis="0 1 0" range="-120 0"/>
+          <geom name="l_farm_g" fromto="0 0 0  0 0 -0.09" size="0.015"/>
+        </body>
+      </body>
+
+      <!-- ============ SAG KOL ============ -->
+      <body name="r_uarm" pos="0 -0.07 0.06">
+        <joint name="r_shoulder_pitch" axis="0 1 0" range="-120 120"/>
+        <joint name="r_shoulder_roll"  axis="1 0 0" range="-90 20"/>
+        <geom name="r_uarm_g" fromto="0 0 0  0 0 -0.09" size="0.018"/>
+        <body name="r_farm" pos="0 0 -0.09">
+          <joint name="r_elbow" axis="0 1 0" range="-120 0"/>
+          <geom name="r_farm_g" fromto="0 0 0  0 0 -0.09" size="0.015"/>
+        </body>
+      </body>
+
+      <!-- ============ BAS (2 DOF: pan + tilt, kamera platformu) ============ -->
+      <body name="head" pos="0 0 0.09">
+        <joint name="neck_yaw"   axis="0 0 1" range="-60 60"/>
+        <joint name="neck_pitch" axis="0 1 0" range="-30 30"/>
+        <geom name="head_g" type="sphere" size="0.045" pos="0 0 0.045" density="500" rgba="0.9 0.8 0.6 1"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <!-- ============ 20 AKTUATOR (servo) ============ -->
+  <actuator>
+    <position class="bacak_motor" name="m_l_hip_yaw"     joint="l_hip_yaw"/>
+    <position class="bacak_motor" name="m_l_hip_roll"    joint="l_hip_roll"/>
+    <position class="bacak_motor" name="m_l_hip_pitch"   joint="l_hip_pitch"/>
+    <position class="bacak_motor" name="m_l_knee"        joint="l_knee"/>
+    <position class="bacak_motor" name="m_l_ankle_pitch" joint="l_ankle_pitch" forcerange="-3 3"/>    <!-- bilek zayif (gercekci; sim'de 'ucma' yok) -->
+    <position class="bacak_motor" name="m_l_ankle_roll"  joint="l_ankle_roll"  forcerange="-1.5 1.5"/>
+    <position class="bacak_motor" name="m_r_hip_yaw"     joint="r_hip_yaw"/>
+    <position class="bacak_motor" name="m_r_hip_roll"    joint="r_hip_roll"/>
+    <position class="bacak_motor" name="m_r_hip_pitch"   joint="r_hip_pitch"/>
+    <position class="bacak_motor" name="m_r_knee"        joint="r_knee"/>
+    <position class="bacak_motor" name="m_r_ankle_pitch" joint="r_ankle_pitch" forcerange="-3 3"/>
+    <position class="bacak_motor" name="m_r_ankle_roll"  joint="r_ankle_roll"  forcerange="-1.5 1.5"/>
+    <position class="kol_motor"   name="m_l_sh_pitch"    joint="l_shoulder_pitch"/>
+    <position class="kol_motor"   name="m_l_sh_roll"     joint="l_shoulder_roll"/>
+    <position class="kol_motor"   name="m_l_elbow"       joint="l_elbow"/>
+    <position class="kol_motor"   name="m_r_sh_pitch"    joint="r_shoulder_pitch"/>
+    <position class="kol_motor"   name="m_r_sh_roll"     joint="r_shoulder_roll"/>
+    <position class="kol_motor"   name="m_r_elbow"       joint="r_elbow"/>
+    <position class="kol_motor"   name="m_neck_yaw"      joint="neck_yaw"/>
+    <position class="kol_motor"   name="m_neck_pitch"    joint="neck_pitch"/>
+  </actuator>
+</mujoco>

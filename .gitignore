@@ -1,0 +1,30 @@
+# Python sanal ortam (2GB — requirements.txt'ten yeniden kurulur)
+.venv/
+venv/
+
+# TensorBoard eğitim logları (yeniden üretilebilir, büyük)
+logs/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# İşletim sistemi / editör
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+
+# Geçici
+*.tmp
+scratchpad/
+
+# Ara eğitim checkpoint'leri (yuru2..yuru9, yuru11, yuru12) — repo şişmesin diye
+# gönderilmiyor. Gönderilenler: yuru10 (final), yuruyus, yuruyus_dr, denge.
+# Her iterasyon `train_ppo.py --env yuruN` ile yeniden eğitilebilir; her iterasyonun
+# ortamı (envs/) ve yürüyüş videosu (videos/) repoda duruyor.
+models/policy_yuru[0-9].zip
+models/policy_yuru1[12].zip

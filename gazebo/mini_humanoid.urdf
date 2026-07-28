@@ -1,0 +1,510 @@
+<?xml version="1.0"?>
+<!-- ============================================================
+     mini_humanoid.urdf  —  MJCF (models/mini_humanoid.xml) modelinin
+     ROS/Gazebo tarafindaki karsiligi.  ~0.55 m, ~3.1 kg, 20 DOF.
+
+     NEDEN AYRI BIR DOSYA?
+       MuJoCo -> egitim (hizli, RL icin).  Gazebo -> ROS2 dogrulama (sensor,
+       controller, sim-to-real koprusu).  Ayni robotu iki dilde tarif ederiz.
+
+     URDF ile MJCF ARASINDAKI KRITIK FARK:
+       MJCF'te bir 'body' uzerine BIRDEN COK joint konabilir (kalca = 3 joint
+       ayni noktada).  URDF'te her joint TAM 2 link baglar ve TEK serbestlik
+       derecesi tasir.  Bu yuzden cok-DOF'lu eklemleri KUTLESIZ 'dummy' ara
+       link'lerle zincirliyoruz (ornek: hip_yaw_link, hip_roll_link).
+       Eklem ISIMLERI, EKSENLERI ve LIMITLERI MJCF ile birebir ayni tutuldu.
+       (MJCF derece -> URDF radyan cevrildi.)
+
+     forcerange -> effort limit (Nm):  bacak +-8,  kol/bas +-3.
+     ============================================================ -->
+<robot name="mini_humanoid">
+
+  <!-- ================= MATERYALLER (sadece gorsel) ================= -->
+  <material name="mavi">  <color rgba="0.2 0.5 0.7 1"/></material>
+  <material name="gri">   <color rgba="0.7 0.75 0.8 1"/></material>
+  <material name="siyah"> <color rgba="0.15 0.15 0.15 1"/></material>
+  <material name="ten">   <color rgba="0.9 0.8 0.6 1"/></material>
+
+  <!-- ================= GOVDE (KOK link) =================
+       MJCF'te torso z=0.365'te 'freejoint' ile duruyordu.  URDF'te kok link
+       serbesttir; Gazebo'ya spawn ederken baslangic yuksekligini launch/spawn
+       komutunda veririz.  box yari-boyut 0.06 0.05 0.09 -> tam 0.12 0.10 0.18. -->
+  <link name="torso">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1.3"/>
+      <inertia ixx="4.6e-3" iyy="5.1e-3" izz="2.6e-3" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <geometry><box size="0.12 0.10 0.18"/></geometry>
+      <material name="mavi"/>
+    </visual>
+    <collision>
+      <geometry><box size="0.12 0.10 0.18"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ============================================================
+       SOL BACAK (6 DOF): hip_yaw -> hip_roll -> hip_pitch -> knee
+                          -> ankle_pitch -> ankle_roll
+       ============================================================ -->
+
+  <!-- kalca 3 joint AYNI noktada: iki kutlesiz dummy ile zincirle -->
+  <link name="l_hip_yaw_link">
+    <inertial><mass value="1e-3"/><inertia ixx="1e-6" iyy="1e-6" izz="1e-6" ixy="0" ixz="0" iyz="0"/></inertial>
+  </link>
+  <link name="l_hip_roll_link">
+    <inertial><mass value="1e-3"/><inertia ixx="1e-6" iyy="1e-6" izz="1e-6" ixy="0" ixz="0" iyz="0"/></inertial>
+  </link>
+
+  <joint name="l_hip_yaw" type="revolute">
+    <parent link="torso"/><child link="l_hip_yaw_link"/>
+    <origin xyz="0 0.05 -0.09" rpy="0 0 0"/>       <!-- MJCF: l_thigh pos -->
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.6981" upper="0.6981" effort="8" velocity="10"/>  <!-- -40..40 deg -->
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+  <joint name="l_hip_roll" type="revolute">
+    <parent link="l_hip_yaw_link"/><child link="l_hip_roll_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.5236" upper="0.5236" effort="8" velocity="10"/>  <!-- -30..30 -->
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+  <joint name="l_hip_pitch" type="revolute">
+    <parent link="l_hip_roll_link"/><child link="l_thigh"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.5708" upper="1.0472" effort="8" velocity="10"/>  <!-- -90..60 -->
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+
+  <!-- ust bacak: kapsul r0.025 z=0..-0.12  -> COM z=-0.06 -->
+  <link name="l_thigh">
+    <inertial>
+      <origin xyz="0 0 -0.06" rpy="0 0 0"/>
+      <mass value="0.28"/>
+      <inertia ixx="3.8e-4" iyy="3.8e-4" izz="8.75e-5" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 -0.06" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.025" length="0.12"/></geometry>
+      <material name="gri"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.06" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.025" length="0.12"/></geometry>
+    </collision>
+  </link>
+
+  <joint name="l_knee" type="revolute">
+    <parent link="l_thigh"/><child link="l_shank"/>
+    <origin xyz="0 0 -0.12" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="0.0" upper="2.0944" effort="8" velocity="10"/>       <!-- 0..120 -->
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+
+  <link name="l_shank">
+    <inertial>
+      <origin xyz="0 0 -0.06" rpy="0 0 0"/>
+      <mass value="0.18"/>
+      <inertia ixx="2.38e-4" iyy="2.38e-4" izz="4.36e-5" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 -0.06" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.022" length="0.12"/></geometry>
+      <material name="gri"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.06" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.022" length="0.12"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ayak bilegi 2 joint: pitch -> (dummy) -> roll -> foot -->
+  <link name="l_ankle_pitch_link">
+    <inertial><mass value="1e-3"/><inertia ixx="1e-6" iyy="1e-6" izz="1e-6" ixy="0" ixz="0" iyz="0"/></inertial>
+  </link>
+  <joint name="l_ankle_pitch" type="revolute">
+    <parent link="l_shank"/><child link="l_ankle_pitch_link"/>
+    <origin xyz="0 0 -0.12" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.8727" upper="0.8727" effort="8" velocity="10"/>  <!-- -50..50 -->
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+  <joint name="l_ankle_roll" type="revolute">
+    <parent link="l_ankle_pitch_link"/><child link="l_foot"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.4363" upper="0.4363" effort="8" velocity="10"/>  <!-- -25..25 -->
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+
+  <!-- ayak: box tam 0.12 0.06 0.03, MJCF pos 0.02 0 -0.02 -->
+  <link name="l_foot">
+    <inertial>
+      <origin xyz="0.02 0 -0.02" rpy="0 0 0"/>
+      <mass value="0.15"/>
+      <inertia ixx="5.6e-5" iyy="1.9e-4" izz="2.25e-4" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.02 0 -0.02" rpy="0 0 0"/>
+      <geometry><box size="0.12 0.06 0.03"/></geometry>
+      <material name="siyah"/>
+    </visual>
+    <collision>
+      <origin xyz="0.02 0 -0.02" rpy="0 0 0"/>
+      <geometry><box size="0.12 0.06 0.03"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ============================================================
+       SAG BACAK (ayna: y negatif) — MJCF ile ayni yapiliar
+       ============================================================ -->
+  <link name="r_hip_yaw_link">
+    <inertial><mass value="1e-3"/><inertia ixx="1e-6" iyy="1e-6" izz="1e-6" ixy="0" ixz="0" iyz="0"/></inertial>
+  </link>
+  <link name="r_hip_roll_link">
+    <inertial><mass value="1e-3"/><inertia ixx="1e-6" iyy="1e-6" izz="1e-6" ixy="0" ixz="0" iyz="0"/></inertial>
+  </link>
+
+  <joint name="r_hip_yaw" type="revolute">
+    <parent link="torso"/><child link="r_hip_yaw_link"/>
+    <origin xyz="0 -0.05 -0.09" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.6981" upper="0.6981" effort="8" velocity="10"/>
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+  <joint name="r_hip_roll" type="revolute">
+    <parent link="r_hip_yaw_link"/><child link="r_hip_roll_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.5236" upper="0.5236" effort="8" velocity="10"/>
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+  <joint name="r_hip_pitch" type="revolute">
+    <parent link="r_hip_roll_link"/><child link="r_thigh"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.5708" upper="1.0472" effort="8" velocity="10"/>
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+
+  <link name="r_thigh">
+    <inertial>
+      <origin xyz="0 0 -0.06" rpy="0 0 0"/>
+      <mass value="0.28"/>
+      <inertia ixx="3.8e-4" iyy="3.8e-4" izz="8.75e-5" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 -0.06" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.025" length="0.12"/></geometry>
+      <material name="gri"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.06" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.025" length="0.12"/></geometry>
+    </collision>
+  </link>
+
+  <joint name="r_knee" type="revolute">
+    <parent link="r_thigh"/><child link="r_shank"/>
+    <origin xyz="0 0 -0.12" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="0.0" upper="2.0944" effort="8" velocity="10"/>
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+
+  <link name="r_shank">
+    <inertial>
+      <origin xyz="0 0 -0.06" rpy="0 0 0"/>
+      <mass value="0.18"/>
+      <inertia ixx="2.38e-4" iyy="2.38e-4" izz="4.36e-5" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 -0.06" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.022" length="0.12"/></geometry>
+      <material name="gri"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.06" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.022" length="0.12"/></geometry>
+    </collision>
+  </link>
+
+  <link name="r_ankle_pitch_link">
+    <inertial><mass value="1e-3"/><inertia ixx="1e-6" iyy="1e-6" izz="1e-6" ixy="0" ixz="0" iyz="0"/></inertial>
+  </link>
+  <joint name="r_ankle_pitch" type="revolute">
+    <parent link="r_shank"/><child link="r_ankle_pitch_link"/>
+    <origin xyz="0 0 -0.12" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.8727" upper="0.8727" effort="8" velocity="10"/>
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+  <joint name="r_ankle_roll" type="revolute">
+    <parent link="r_ankle_pitch_link"/><child link="r_foot"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.4363" upper="0.4363" effort="8" velocity="10"/>
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+
+  <link name="r_foot">
+    <inertial>
+      <origin xyz="0.02 0 -0.02" rpy="0 0 0"/>
+      <mass value="0.15"/>
+      <inertia ixx="5.6e-5" iyy="1.9e-4" izz="2.25e-4" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.02 0 -0.02" rpy="0 0 0"/>
+      <geometry><box size="0.12 0.06 0.03"/></geometry>
+      <material name="siyah"/>
+    </visual>
+    <collision>
+      <origin xyz="0.02 0 -0.02" rpy="0 0 0"/>
+      <geometry><box size="0.12 0.06 0.03"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ============================================================
+       SOL KOL (3 DOF): shoulder_pitch -> shoulder_roll -> elbow
+       ============================================================ -->
+  <link name="l_shoulder_pitch_link">
+    <inertial><mass value="1e-3"/><inertia ixx="1e-6" iyy="1e-6" izz="1e-6" ixy="0" ixz="0" iyz="0"/></inertial>
+  </link>
+  <joint name="l_shoulder_pitch" type="revolute">
+    <parent link="torso"/><child link="l_shoulder_pitch_link"/>
+    <origin xyz="0 0.07 0.06" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-2.0944" upper="2.0944" effort="3" velocity="8"/>   <!-- -120..120 -->
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+  <joint name="l_shoulder_roll" type="revolute">
+    <parent link="l_shoulder_pitch_link"/><child link="l_uarm"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.3491" upper="1.5708" effort="3" velocity="8"/>   <!-- -20..90 -->
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+
+  <link name="l_uarm">
+    <inertial>
+      <origin xyz="0 0 -0.045" rpy="0 0 0"/>
+      <mass value="0.08"/>
+      <inertia ixx="6.05e-5" iyy="6.05e-5" izz="1.3e-5" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 -0.045" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.018" length="0.09"/></geometry>
+      <material name="gri"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.045" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.018" length="0.09"/></geometry>
+    </collision>
+  </link>
+
+  <joint name="l_elbow" type="revolute">
+    <parent link="l_uarm"/><child link="l_farm"/>
+    <origin xyz="0 0 -0.09" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-2.0944" upper="0.0" effort="3" velocity="8"/>     <!-- -120..0 -->
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+
+  <link name="l_farm">
+    <inertial>
+      <origin xyz="0 0 -0.045" rpy="0 0 0"/>
+      <mass value="0.06"/>
+      <inertia ixx="4.4e-5" iyy="4.4e-5" izz="6.75e-6" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 -0.045" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.015" length="0.09"/></geometry>
+      <material name="gri"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.045" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.015" length="0.09"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ============================================================
+       SAG KOL (ayna): shoulder_roll limiti MJCF'te -90..20
+       ============================================================ -->
+  <link name="r_shoulder_pitch_link">
+    <inertial><mass value="1e-3"/><inertia ixx="1e-6" iyy="1e-6" izz="1e-6" ixy="0" ixz="0" iyz="0"/></inertial>
+  </link>
+  <joint name="r_shoulder_pitch" type="revolute">
+    <parent link="torso"/><child link="r_shoulder_pitch_link"/>
+    <origin xyz="0 -0.07 0.06" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-2.0944" upper="2.0944" effort="3" velocity="8"/>
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+  <joint name="r_shoulder_roll" type="revolute">
+    <parent link="r_shoulder_pitch_link"/><child link="r_uarm"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-1.5708" upper="0.3491" effort="3" velocity="8"/>   <!-- -90..20 -->
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+
+  <link name="r_uarm">
+    <inertial>
+      <origin xyz="0 0 -0.045" rpy="0 0 0"/>
+      <mass value="0.08"/>
+      <inertia ixx="6.05e-5" iyy="6.05e-5" izz="1.3e-5" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 -0.045" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.018" length="0.09"/></geometry>
+      <material name="gri"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.045" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.018" length="0.09"/></geometry>
+    </collision>
+  </link>
+
+  <joint name="r_elbow" type="revolute">
+    <parent link="r_uarm"/><child link="r_farm"/>
+    <origin xyz="0 0 -0.09" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-2.0944" upper="0.0" effort="3" velocity="8"/>
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+
+  <link name="r_farm">
+    <inertial>
+      <origin xyz="0 0 -0.045" rpy="0 0 0"/>
+      <mass value="0.06"/>
+      <inertia ixx="4.4e-5" iyy="4.4e-5" izz="6.75e-6" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 -0.045" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.015" length="0.09"/></geometry>
+      <material name="gri"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.045" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.015" length="0.09"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ============================================================
+       BAS (2 DOF: neck_yaw pan + neck_pitch tilt = kamera platformu)
+       ============================================================ -->
+  <link name="neck_yaw_link">
+    <inertial><mass value="1e-3"/><inertia ixx="1e-6" iyy="1e-6" izz="1e-6" ixy="0" ixz="0" iyz="0"/></inertial>
+  </link>
+  <joint name="neck_yaw" type="revolute">
+    <parent link="torso"/><child link="neck_yaw_link"/>
+    <origin xyz="0 0 0.09" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-1.0472" upper="1.0472" effort="3" velocity="8"/>  <!-- -60..60 -->
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+  <joint name="neck_pitch" type="revolute">
+    <parent link="neck_yaw_link"/><child link="head"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.5236" upper="0.5236" effort="3" velocity="8"/>  <!-- -30..30 -->
+    <dynamics damping="0.3" friction="0.0"/>
+  </joint>
+
+  <link name="head">
+    <inertial>
+      <origin xyz="0 0 0.045" rpy="0 0 0"/>
+      <mass value="0.2"/>
+      <inertia ixx="1.62e-4" iyy="1.62e-4" izz="1.62e-4" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.045" rpy="0 0 0"/>
+      <geometry><sphere radius="0.045"/></geometry>
+      <material name="ten"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.045" rpy="0 0 0"/>
+      <geometry><sphere radius="0.045"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ============================================================
+       ros2_control DONANIM ARAYUZU
+       Her eklem icin: 1 komut arayuzu (position) + 2 durum arayuzu
+       (position, velocity).  Gazebo simulasyonunda gazebo_ros2_control
+       plugini bu arayuzleri sanal donanima baglar.  (Gercek robotta bu
+       blok yerine servo suruculerin donanim arayuzu gelir = sim-to-real.)
+       ============================================================ -->
+  <ros2_control name="MiniHumanoidHW" type="system">
+    <hardware>
+      <!-- SIMULASYON icin: gazebo_ros2_control (Gazebo Classic + Humble).
+           gz (yeni Gazebo) kullanacaksan: gz_ros2_control/GazeboSimSystem -->
+      <plugin>gazebo_ros2_control/GazeboSystem</plugin>
+    </hardware>
+
+    <!-- ==== BACAK EKLEMLERI (12) — pozisyon komutu, limit +-8 Nm ==== -->
+    <joint name="l_hip_yaw">     <command_interface name="position"><param name="min">-0.6981</param><param name="max">0.6981</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+    <joint name="l_hip_roll">    <command_interface name="position"><param name="min">-0.5236</param><param name="max">0.5236</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+    <joint name="l_hip_pitch">   <command_interface name="position"><param name="min">-1.5708</param><param name="max">1.0472</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+    <joint name="l_knee">        <command_interface name="position"><param name="min">0.0</param><param name="max">2.0944</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+    <joint name="l_ankle_pitch"> <command_interface name="position"><param name="min">-0.8727</param><param name="max">0.8727</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+    <joint name="l_ankle_roll">  <command_interface name="position"><param name="min">-0.4363</param><param name="max">0.4363</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+    <joint name="r_hip_yaw">     <command_interface name="position"><param name="min">-0.6981</param><param name="max">0.6981</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+    <joint name="r_hip_roll">    <command_interface name="position"><param name="min">-0.5236</param><param name="max">0.5236</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+    <joint name="r_hip_pitch">   <command_interface name="position"><param name="min">-1.5708</param><param name="max">1.0472</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+    <joint name="r_knee">        <command_interface name="position"><param name="min">0.0</param><param name="max">2.0944</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+    <joint name="r_ankle_pitch"> <command_interface name="position"><param name="min">-0.8727</param><param name="max">0.8727</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+    <joint name="r_ankle_roll">  <command_interface name="position"><param name="min">-0.4363</param><param name="max">0.4363</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+
+    <!-- ==== KOL + BAS EKLEMLERI (8) — pozisyon komutu, limit +-3 Nm ==== -->
+    <joint name="l_shoulder_pitch"><command_interface name="position"><param name="min">-2.0944</param><param name="max">2.0944</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+    <joint name="l_shoulder_roll"> <command_interface name="position"><param name="min">-0.3491</param><param name="max">1.5708</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+    <joint name="l_elbow">         <command_interface name="position"><param name="min">-2.0944</param><param name="max">0.0</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+    <joint name="r_shoulder_pitch"><command_interface name="position"><param name="min">-2.0944</param><param name="max">2.0944</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+    <joint name="r_shoulder_roll"> <command_interface name="position"><param name="min">-1.5708</param><param name="max">0.3491</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+    <joint name="r_elbow">         <command_interface name="position"><param name="min">-2.0944</param><param name="max">0.0</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+    <joint name="neck_yaw">        <command_interface name="position"><param name="min">-1.0472</param><param name="max">1.0472</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+    <joint name="neck_pitch">      <command_interface name="position"><param name="min">-0.5236</param><param name="max">0.5236</param></command_interface><state_interface name="position"/><state_interface name="velocity"/></joint>
+  </ros2_control>
+
+  <!-- ============================================================
+       GAZEBO ELEKTRONIGI
+       - controller_manager'i URDF'e goment (YAML ile ayar dosyasi)
+       - govdeye bir IMU sensoru (DengeEnv gozlemi IMU/quaternion ister)
+       ============================================================ -->
+  <gazebo>
+    <plugin filename="libgazebo_ros2_control.so" name="gazebo_ros2_control">
+      <!-- controller ayarlari: launch tarafinda verilen YAML -->
+      <parameters>/home/yasin/Workspace/humanoid_rl/gazebo/controllers.yaml</parameters>
+    </plugin>
+  </gazebo>
+
+  <!-- Govde IMU: /imu topic'i -> policy_runner gozlem quaternion + acisal hiz -->
+  <gazebo reference="torso">
+    <sensor name="torso_imu" type="imu">
+      <always_on>true</always_on>
+      <update_rate>100</update_rate>
+      <plugin filename="libgazebo_ros_imu_sensor.so" name="torso_imu_plugin">
+        <ros><namespace>/</namespace><remapping>~/out:=imu</remapping></ros>
+        <frame_name>torso</frame_name>
+      </plugin>
+    </sensor>
+  </gazebo>
+
+  <!-- Govde yer-gercegi (yukseklik z + dogrusal hiz): P3D plugin -> /odom.
+       (libgazebo_ros_state.so'yu launch'ta -s ile yuklemek 'incorrect plugin type'
+       hatasi veriyordu; P3D URDF-ici calisir ve nav_msgs/Odometry yayinlar.) -->
+  <gazebo>
+    <plugin name="torso_p3d" filename="libgazebo_ros_p3d.so">
+      <ros><namespace>/</namespace></ros>
+      <body_name>torso</body_name>
+      <frame_name>world</frame_name>
+      <update_rate>50</update_rate>
+    </plugin>
+  </gazebo>
+
+</robot>

@@ -1,0 +1,35 @@
+# controllers.yaml — Gazebo ros2_control controller ayarlari (20 eklem)
+# joint_state_broadcaster: eklem aci/hizlarini /joint_states'e yayinlar
+# position_controller: 20 eklem icin hedef aci komutu (/position_controller/commands, Float64MultiArray)
+# Eklem SIRASI politikanin aksiyon sirasiyla BIREBIR ayni olmali.
+controller_manager:
+  ros__parameters:
+    update_rate: 200  # Hz
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    position_controller:
+      type: position_controllers/JointGroupPositionController
+
+position_controller:
+  ros__parameters:
+    joints:
+      - l_hip_yaw
+      - l_hip_roll
+      - l_hip_pitch
+      - l_knee
+      - l_ankle_pitch
+      - l_ankle_roll
+      - r_hip_yaw
+      - r_hip_roll
+      - r_hip_pitch
+      - r_knee
+      - r_ankle_pitch
+      - r_ankle_roll
+      - l_shoulder_pitch
+      - l_shoulder_roll
+      - l_elbow
+      - r_shoulder_pitch
+      - r_shoulder_roll
+      - r_elbow
+      - neck_yaw
+      - neck_pitch
