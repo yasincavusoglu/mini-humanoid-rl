@@ -1,0 +1,67 @@
+name: torch-free policy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  numpy-inference:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # The whole point of the NumPy export: the deployed "robot brain" must
+      # run with numpy alone — no PyTorch, no Stable-Baselines3, no MuJoCo.
+      - name: Install numpy only
+        run: pip install numpy
+
+      - name: Run the exported policy with numpy alone
+        run: |
+          python3 - <<'PY'
+          import sys
+          import numpy as np
+          sys.path.insert(0, "ros2")
+
+          assert "torch" not in sys.modules, "torch must not be imported"
+          from politika_numpy import NumpyPolitika
+
+          pol = NumpyPolitika("models/politika_yuru10_numpy.npz")
+          obs_dim = pol.mean.shape[0]
+          assert obs_dim == 53, f"expected the 53-D phase observation, got {obs_dim}"
+
+          # Deterministic: the same observation must give the same action.
+          rng = np.random.default_rng(0)
+          obs = rng.normal(size=obs_dim)
+          a1, a2 = pol.act(obs), pol.act(obs)
+
+          assert a1.shape == (20,), f"expected 20 joint actions, got {a1.shape}"
+          assert np.array_equal(a1, a2), "policy is not deterministic"
+          assert np.all(np.abs(a1) <= 1.0), "actions must stay inside [-1, 1]"
+          assert not np.any(np.isnan(a1)), "policy produced NaN"
+          assert "torch" not in sys.modules, "policy pulled in torch"
+
+          print(f"torch-free policy OK: obs {obs_dim} -> {a1.shape[0]} actions, "
+                f"range [{a1.min():.3f}, {a1.max():.3f}]")
+          PY
+
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Byte-compile every module
+        run: python3 -m compileall -q envs scripts ros2 cognitive

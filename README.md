@@ -1,5 +1,9 @@
 # Mini Humanoid RL — Learning to Walk from Scratch
 
+[![torch-free policy](https://github.com/yasincavusoglu/mini-humanoid-rl/actions/workflows/policy-check.yml/badge.svg)](https://github.com/yasincavusoglu/mini-humanoid-rl/actions/workflows/policy-check.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+
 A **20-DOF mini humanoid** (~0.55 m, ~3 kg) that **learns to walk with Reinforcement Learning**, trained in [MuJoCo](https://mujoco.org/) with [PPO](https://stable-baselines3.readthedocs.io/) and bridged to a ROS 2 / Gazebo stack for sim-to-real validation. Built end-to-end: robot model, RL environments, reward engineering, a torch-free deployment path, and a local-LLM task planner.
 
 ![Learned walking gait](videos/demo_walk.gif)
@@ -51,7 +55,11 @@ MuJoCo (physics) ──> Gym env (obs 53-D: state + phase clock) ──> PPO / S
 - **`ros2/`** — the torch-free policy runner and Gazebo helpers.
 - **`gazebo/`** — URDF (MJCF's ROS/Gazebo twin), controllers, and launch files.
 - **`cognitive/`** — a local-LLM task planner that maps high-level commands to robot skills.
-- **`models/`** — the MJCF robot, trained policies, and the NumPy export.
+- **`models/`** — the MJCF robot, trained policies, and the NumPy export. The shipped
+  checkpoints are the ones the docs reference (`yuru10` final walk, `yuruyus`, `yuruyus_dr`,
+  `denge`); the intermediate reward-iteration checkpoints are not committed, to keep the clone
+  small. Every iteration's **environment** (`envs/`) and **gait video** (`videos/`) is in the
+  repo, and any of them can be retrained with `train_ppo.py --env yuruN`.
 
 ## Quickstart
 
